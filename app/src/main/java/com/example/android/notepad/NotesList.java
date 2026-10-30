@@ -28,6 +28,8 @@ import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.util.Log;
 import android.view.ContextMenu;
 import android.view.Menu;
@@ -36,8 +38,13 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ContextMenu.ContextMenuInfo;
 import android.widget.AdapterView;
+import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.SimpleCursorAdapter;
+import android.widget.TextView;
+
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 
 /**
@@ -61,10 +68,22 @@ public class NotesList extends ListActivity {
     private static final String[] PROJECTION = new String[] {
             NotePad.Notes._ID, // 0
             NotePad.Notes.COLUMN_NAME_TITLE, // 1
+            NotePad.Notes.COLUMN_NAME_MODIFICATION_DATE, // 2
     };
 
     /** The index of the title column */
     private static final int COLUMN_INDEX_TITLE = 1;
+
+    /** The index of the modification date column */
+    private static final int COLUMN_INDEX_MODIFIED = 2;
+
+    private static final SimpleDateFormat TIME_FORMAT = new SimpleDateFormat("yyyy-MM-dd HH:mm");
+
+    /** The adapter that backs the list, kept so that the search can update it */
+    private SimpleCursorAdapter mAdapter;
+
+    /** The search box above the list */
+    private EditText mSearchText;
 
     /**
      * onCreate is called when Android starts this Activity from scratch.
@@ -72,6 +91,9 @@ public class NotesList extends ListActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // 列表上方加一个搜索框，下方是笔记列表
+        setContentView(R.layout.notes_list);
 
         // The user does not need to hold down the key to use menu shortcuts.
         setDefaultKeyMode(DEFAULT_KEYS_SHORTCUT);
@@ -96,14 +118,12 @@ public class NotesList extends ListActivity {
          */
         getListView().setOnCreateContextMenuListener(this);
 
-        /* Performs a managed query. The Activity handles closing and requerying the cursor
-         * when needed.
-         *
-         * Please see the introductory note about performing provider operations on the UI thread.
+        /* Queries the provider for all notes. The cursor is passed to the adapter below,
+         * which closes it when a new cursor is set or when the Activity is destroyed.
          */
-        Cursor cursor = managedQuery(
+        Cursor cursor = getContentResolver().query(
             getIntent().getData(),            // Use the default content URI for the provider.
-            PROJECTION,                       // Return the note ID and title for each note.
+            PROJECTION,                       // Return the note ID, title and date for each note.
             null,                             // No where clause, return all records.
             null,                             // No where clause, therefore no where column values.
             NotePad.Notes.DEFAULT_SORT_ORDER  // Use the default sort order.
@@ -117,16 +137,18 @@ public class NotesList extends ListActivity {
          * value will appear in the ListView.
          */
 
-        // The names of the cursor columns to display in the view, initialized to the title column
-        String[] dataColumns = { NotePad.Notes.COLUMN_NAME_TITLE } ;
+        // The names of the cursor columns to display in the view: title and modification date
+        String[] dataColumns = {
+                NotePad.Notes.COLUMN_NAME_TITLE,
+                NotePad.Notes.COLUMN_NAME_MODIFICATION_DATE
+        };
 
-        // The view IDs that will display the cursor columns, initialized to the TextView in
+        // The view IDs that will display the cursor columns, initialized to the two TextViews in
         // noteslist_item.xml
-        int[] viewIDs = { android.R.id.text1 };
+        int[] viewIDs = { android.R.id.text1, android.R.id.text2 };
 
         // Creates the backing adapter for the ListView.
-        SimpleCursorAdapter adapter
-            = new SimpleCursorAdapter(
+        mAdapter = new SimpleCursorAdapter(
                       this,                             // The Context for the ListView
                       R.layout.noteslist_item,          // Points to the XML for a list item
                       cursor,                           // The cursor to get items from
@@ -134,8 +156,76 @@ public class NotesList extends ListActivity {
                       viewIDs
               );
 
+        // The modification date is stored as a long, so convert it to a readable string.
+        mAdapter.setViewBinder(new SimpleCursorAdapter.ViewBinder() {
+            @Override
+            public boolean setViewValue(View view, Cursor cursor, int columnIndex) {
+                if (view.getId() == android.R.id.text2) {
+                    long time = cursor.getLong(COLUMN_INDEX_MODIFIED);
+                    ((TextView) view).setText(TIME_FORMAT.format(new Date(time)));
+                    return true;
+                }
+                return false;
+            }
+        });
+
         // Sets the ListView's adapter to be the cursor adapter that was just created.
-        setListAdapter(adapter);
+        setListAdapter(mAdapter);
+
+        // Typing in the search box filters the list by title or note content.
+        mSearchText = (EditText) findViewById(R.id.search_text);
+        mSearchText.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                updateList(s.toString().trim());
+            }
+        });
+    }
+
+    /**
+     * Re-queries the notes and replaces the list's cursor. An empty keyword shows all notes.
+     */
+    private void updateList(String keyword) {
+        String selection = null;
+        String[] selectionArgs = null;
+        if (keyword.length() > 0) {
+            selection = NotePad.Notes.COLUMN_NAME_TITLE + " LIKE ? OR "
+                    + NotePad.Notes.COLUMN_NAME_NOTE + " LIKE ?";
+            selectionArgs = new String[] { "%" + keyword + "%", "%" + keyword + "%" };
+        }
+
+        Cursor cursor = getContentResolver().query(
+                getIntent().getData(),
+                PROJECTION,
+                selection,
+                selectionArgs,
+                NotePad.Notes.DEFAULT_SORT_ORDER);
+        // changeCursor closes the previous cursor
+        mAdapter.changeCursor(cursor);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // 从编辑界面返回时重新查询，保证标题和时间戳是最新的
+        updateList(mSearchText.getText().toString().trim());
+    }
+
+    @Override
+    protected void onDestroy() {
+        Cursor cursor = mAdapter.getCursor();
+        if (cursor != null) {
+            cursor.close();
+        }
+        super.onDestroy();
     }
 
     /**
@@ -420,6 +510,9 @@ public class NotesList extends ListActivity {
                     // passed in.
                     null      // No where clause is used, so no where arguments are needed.
             );
+
+            // The cursor is not managed by the Activity, so refresh the list manually.
+            updateList(mSearchText.getText().toString().trim());
 
             // Returns to the caller and skips further processing.
             return true;

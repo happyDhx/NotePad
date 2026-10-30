@@ -22,6 +22,7 @@
     <string name="title_create">New note</string>
     <string name="title_edit">Edit: %1$s</string>
     <string name="title_notes_list">Notes</string>
+    <string name="search_hint">搜索标题或内容</string>
 
     <string name="menu_add">New note</string>
     <string name="menu_save">Save</string>

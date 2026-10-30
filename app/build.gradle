@@ -21,3 +21,6 @@ android {
         }
     }
 }
+
+task prepareKotlinBuildScriptModel {
+}
