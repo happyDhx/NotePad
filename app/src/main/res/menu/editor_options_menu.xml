@@ -10,6 +10,8 @@
           android:title="@string/menu_revert" />
     <item android:id="@+id/menu_category"
           android:title="@string/menu_category" />
+    <item android:id="@+id/menu_add_attachment"
+          android:title="@string/menu_add_attachment" />
     <item android:id="@+id/menu_delete"
           android:icon="@drawable/ic_menu_delete"
           android:title="@string/menu_delete"

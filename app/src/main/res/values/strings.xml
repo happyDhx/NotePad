@@ -37,6 +37,34 @@
     <string name="menu_todo_done">标记完成</string>
     <string name="menu_todo_undone">标记未完成</string>
 
+    <string name="menu_settings">设置</string>
+    <string name="pref_font_size">字体大小</string>
+    <string name="pref_font_size_summary">设置笔记列表和正文的字体大小</string>
+
+    <string name="menu_add_attachment">添加附件</string>
+    <string name="attachment_dialog_title">选择附件类型</string>
+    <string name="attachment_image">图片附件，点击查看</string>
+    <string name="attachment_audio">音频附件，点击播放</string>
+    <string name="attachment_video">视频附件，点击播放</string>
+    <string name="attachment_failed">无法添加该附件</string>
+    <string name="attachment_open_failed">没有找到可以打开附件的应用</string>
+
+    <string-array name="font_size_names">
+        <item>小</item>
+        <item>标准</item>
+        <item>大</item>
+    </string-array>
+    <string-array name="font_size_values">
+        <item>16</item>
+        <item>20</item>
+        <item>24</item>
+    </string-array>
+    <string-array name="attachment_types">
+        <item>图片</item>
+        <item>音频</item>
+        <item>视频</item>
+    </string-array>
+
     <string-array name="categories">
         <item>未分类</item>
         <item>工作</item>

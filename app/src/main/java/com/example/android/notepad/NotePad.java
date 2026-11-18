@@ -171,5 +171,15 @@ public final class NotePad {
 
         /** The note is a to-do that has been finished */
         public static final int TODO_DONE = 2;
+
+        /** Column name for the URI of an image, audio or video attachment */
+        public static final String COLUMN_NAME_ATTACHMENT_URI = "attachment_uri";
+
+        /** Column name for the type of the attachment: image, audio or video */
+        public static final String COLUMN_NAME_ATTACHMENT_TYPE = "attachment_type";
+
+        public static final String TYPE_IMAGE = "image";
+        public static final String TYPE_AUDIO = "audio";
+        public static final String TYPE_VIDEO = "video";
     }
 }

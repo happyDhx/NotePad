@@ -20,6 +20,7 @@ import static com.example.android.notepad.R.*;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.ActivityNotFoundException;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.ComponentName;
@@ -34,13 +35,18 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.AttributeSet;
 import android.util.Log;
+import android.util.TypedValue;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.View;
 import android.widget.EditText;
+import android.widget.ImageView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 /**
@@ -66,7 +72,15 @@ public class NoteEditor extends Activity {
             NotePad.Notes._ID,
             NotePad.Notes.COLUMN_NAME_TITLE,
             NotePad.Notes.COLUMN_NAME_NOTE,
-            NotePad.Notes.COLUMN_NAME_CATEGORY
+            NotePad.Notes.COLUMN_NAME_CATEGORY,
+            NotePad.Notes.COLUMN_NAME_ATTACHMENT_URI,
+            NotePad.Notes.COLUMN_NAME_ATTACHMENT_TYPE
+    };
+
+    private static final String[] MEDIA_TYPES = {
+            NotePad.Notes.TYPE_IMAGE,
+            NotePad.Notes.TYPE_AUDIO,
+            NotePad.Notes.TYPE_VIDEO
     };
 
     // A label for the saved state of the activity
@@ -86,6 +100,11 @@ public class NoteEditor extends Activity {
 
     // The category chosen for this note, empty means it is not classified
     private String mCategory = "";
+
+    private String mAttachmentUri = "";
+    private String mAttachmentType = "";
+    private ImageView mAttachmentImage;
+    private TextView mAttachmentText;
 
     /**
      * Defines a custom EditText View that draws lines between each line of text that is displayed.
@@ -237,6 +256,17 @@ public class NoteEditor extends Activity {
         // Gets a handle to the EditText in the the layout.
         mText = (EditText) findViewById(R.id.note);
 
+        mAttachmentImage = (ImageView) findViewById(R.id.attachment_image);
+        mAttachmentText = (TextView) findViewById(R.id.attachment_text);
+        View.OnClickListener attachmentClick = new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                openAttachment();
+            }
+        };
+        mAttachmentImage.setOnClickListener(attachmentClick);
+        mAttachmentText.setOnClickListener(attachmentClick);
+
         /*
          * If this Activity had stopped previously, its state was written the ORIGINAL_CONTENT
          * location in the saved Instance state. This gets the state.
@@ -257,6 +287,8 @@ public class NoteEditor extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+
+        mText.setTextSize(TypedValue.COMPLEX_UNIT_SP, SettingsActivity.getFontSize(this));
 
         /*
          * mCursor is initialized, since onCreate() always precedes onResume for any running
@@ -303,6 +335,14 @@ public class NoteEditor extends Activity {
             int colCategoryIndex = mCursor.getColumnIndex(NotePad.Notes.COLUMN_NAME_CATEGORY);
             String category = mCursor.getString(colCategoryIndex);
             mCategory = (category == null) ? "" : category;
+
+            String attachmentUri = mCursor.getString(mCursor.getColumnIndex(
+                    NotePad.Notes.COLUMN_NAME_ATTACHMENT_URI));
+            String attachmentType = mCursor.getString(mCursor.getColumnIndex(
+                    NotePad.Notes.COLUMN_NAME_ATTACHMENT_TYPE));
+            mAttachmentUri = (attachmentUri == null) ? "" : attachmentUri;
+            mAttachmentType = (attachmentType == null) ? "" : attachmentType;
+            showAttachment();
 
             // Stores the original note text, to allow the user to revert changes.
             if (mOriginalContent == null) {
@@ -368,7 +408,7 @@ public class NoteEditor extends Activity {
              * even if the note was being edited, the assumption being that the user wanted to
              * "clear out" (delete) the note.
              */
-            if (isFinishing() && (length == 0)) {
+            if (isFinishing() && (length == 0) && mAttachmentUri.length() == 0) {
                 setResult(RESULT_CANCELED);
                 deleteNote();
 
@@ -458,6 +498,8 @@ public class NoteEditor extends Activity {
             cancelNote();
         } else if (id == R.id.menu_category) {
             showCategoryDialog();
+        } else if (id == R.id.menu_add_attachment) {
+            showAttachmentDialog();
         }
         return super.onOptionsItemSelected(item);
     }
@@ -490,6 +532,98 @@ public class NoteEditor extends Activity {
                     }
                 })
                 .show();
+    }
+
+    /** Lets the user choose an image, audio file or video from another app. */
+    private void showAttachmentDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.attachment_dialog_title)
+                .setItems(R.array.attachment_types, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        String action = Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT
+                                ? Intent.ACTION_OPEN_DOCUMENT : Intent.ACTION_GET_CONTENT;
+                        Intent intent = new Intent(action);
+                        intent.setType(MEDIA_TYPES[which] + "/*");
+                        intent.addCategory(Intent.CATEGORY_OPENABLE);
+                        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                        startActivityForResult(intent, which + 1);
+                    }
+                })
+                .show();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (resultCode != RESULT_OK || requestCode < 1 || requestCode > MEDIA_TYPES.length) {
+            return;
+        }
+        if (data == null || data.getData() == null) {
+            Toast.makeText(this, R.string.attachment_failed, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        Uri uri = data.getData();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+            try {
+                // Keep read permission so the attachment can still be opened next time.
+                getContentResolver().takePersistableUriPermission(
+                        uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            } catch (SecurityException e) {
+                Log.w(TAG, "Unable to keep attachment permission", e);
+            }
+        }
+
+        int typeIndex = requestCode - 1;
+        mAttachmentType = MEDIA_TYPES[typeIndex];
+        mAttachmentUri = uri.toString();
+
+        ContentValues values = new ContentValues();
+        values.put(NotePad.Notes.COLUMN_NAME_ATTACHMENT_URI, mAttachmentUri);
+        values.put(NotePad.Notes.COLUMN_NAME_ATTACHMENT_TYPE, mAttachmentType);
+        values.put(NotePad.Notes.COLUMN_NAME_MODIFICATION_DATE, System.currentTimeMillis());
+        if (mText.getText().toString().trim().length() == 0) {
+            String title = getResources().getStringArray(R.array.attachment_types)[typeIndex];
+            values.put(NotePad.Notes.COLUMN_NAME_TITLE, title + "笔记");
+        }
+        getContentResolver().update(mUri, values, null, null);
+        showAttachment();
+    }
+
+    /** Shows an image preview, or a short description for audio and video. */
+    private void showAttachment() {
+        if (mAttachmentUri.length() == 0) {
+            mAttachmentImage.setVisibility(View.GONE);
+            mAttachmentText.setVisibility(View.GONE);
+            return;
+        }
+
+        mAttachmentText.setVisibility(View.VISIBLE);
+        if (NotePad.Notes.TYPE_IMAGE.equals(mAttachmentType)) {
+            mAttachmentImage.setVisibility(View.VISIBLE);
+            mAttachmentImage.setImageURI(Uri.parse(mAttachmentUri));
+            mAttachmentText.setText(R.string.attachment_image);
+        } else {
+            mAttachmentImage.setVisibility(View.GONE);
+            mAttachmentImage.setImageURI(null);
+            mAttachmentText.setText(NotePad.Notes.TYPE_AUDIO.equals(mAttachmentType)
+                    ? R.string.attachment_audio : R.string.attachment_video);
+        }
+    }
+
+    private void openAttachment() {
+        if (mAttachmentUri.length() == 0) {
+            return;
+        }
+        Intent intent = new Intent(Intent.ACTION_VIEW);
+        intent.setDataAndType(Uri.parse(mAttachmentUri), mAttachmentType + "/*");
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        try {
+            startActivity(intent);
+        } catch (ActivityNotFoundException e) {
+            Toast.makeText(this, R.string.attachment_open_failed, Toast.LENGTH_SHORT).show();
+        }
     }
 
 //BEGIN_INCLUDE(paste)

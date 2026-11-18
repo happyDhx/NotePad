@@ -63,7 +63,7 @@ public class NotePadProvider extends ContentProvider implements PipeDataWriter<C
     /**
      * The database version
      */
-    private static final int DATABASE_VERSION = 3;
+    private static final int DATABASE_VERSION = 4;
 
     /**
      * A projection map used to select columns from the database
@@ -164,6 +164,11 @@ public class NotePadProvider extends ContentProvider implements PipeDataWriter<C
         // Maps "todo" to "todo"
         sNotesProjectionMap.put(NotePad.Notes.COLUMN_NAME_TODO, NotePad.Notes.COLUMN_NAME_TODO);
 
+        sNotesProjectionMap.put(NotePad.Notes.COLUMN_NAME_ATTACHMENT_URI,
+                NotePad.Notes.COLUMN_NAME_ATTACHMENT_URI);
+        sNotesProjectionMap.put(NotePad.Notes.COLUMN_NAME_ATTACHMENT_TYPE,
+                NotePad.Notes.COLUMN_NAME_ATTACHMENT_TYPE);
+
         /*
          * Creates an initializes a projection map for handling Live Folders
          */
@@ -206,13 +211,15 @@ public class NotePadProvider extends ContentProvider implements PipeDataWriter<C
                    + NotePad.Notes.COLUMN_NAME_CREATE_DATE + " INTEGER,"
                    + NotePad.Notes.COLUMN_NAME_MODIFICATION_DATE + " INTEGER,"
                    + NotePad.Notes.COLUMN_NAME_CATEGORY + " TEXT,"
-                   + NotePad.Notes.COLUMN_NAME_TODO + " INTEGER NOT NULL DEFAULT 0"
+                   + NotePad.Notes.COLUMN_NAME_TODO + " INTEGER NOT NULL DEFAULT 0,"
+                   + NotePad.Notes.COLUMN_NAME_ATTACHMENT_URI + " TEXT,"
+                   + NotePad.Notes.COLUMN_NAME_ATTACHMENT_TYPE + " TEXT"
                    + ");");
        }
 
        /**
         *
-        * Upgrades the database by adding the columns introduced in version 3. The existing
+        * Upgrades the database by adding the columns introduced in later versions. The existing
         * notes are kept, so that the user does not lose anything when the app is updated.
         */
        @Override
@@ -220,13 +227,19 @@ public class NotePadProvider extends ContentProvider implements PipeDataWriter<C
 
            // Logs that the database is being upgraded
            Log.w(TAG, "Upgrading database from version " + oldVersion + " to "
-                   + newVersion + ", which will add the category and todo columns");
+                   + newVersion + ", which will add the new note columns");
 
            if (oldVersion < 3) {
                db.execSQL("ALTER TABLE " + NotePad.Notes.TABLE_NAME + " ADD COLUMN "
                        + NotePad.Notes.COLUMN_NAME_CATEGORY + " TEXT;");
                db.execSQL("ALTER TABLE " + NotePad.Notes.TABLE_NAME + " ADD COLUMN "
                        + NotePad.Notes.COLUMN_NAME_TODO + " INTEGER NOT NULL DEFAULT 0;");
+           }
+           if (oldVersion < 4) {
+               db.execSQL("ALTER TABLE " + NotePad.Notes.TABLE_NAME + " ADD COLUMN "
+                       + NotePad.Notes.COLUMN_NAME_ATTACHMENT_URI + " TEXT;");
+               db.execSQL("ALTER TABLE " + NotePad.Notes.TABLE_NAME + " ADD COLUMN "
+                       + NotePad.Notes.COLUMN_NAME_ATTACHMENT_TYPE + " TEXT;");
            }
        }
    }

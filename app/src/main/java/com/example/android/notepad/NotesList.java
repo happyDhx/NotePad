@@ -32,6 +32,7 @@ import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
+import android.util.TypedValue;
 import android.view.ContextMenu;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -170,6 +171,7 @@ public class NotesList extends ListActivity {
         mAdapter.setViewBinder(new SimpleCursorAdapter.ViewBinder() {
             @Override
             public boolean setViewValue(View view, Cursor cursor, int columnIndex) {
+                float fontSize = SettingsActivity.getFontSize(NotesList.this);
                 int titleIndex = cursor.getColumnIndex(NotePad.Notes.COLUMN_NAME_TITLE);
                 int categoryIndex = cursor.getColumnIndex(NotePad.Notes.COLUMN_NAME_CATEGORY);
                 int todoIndex = cursor.getColumnIndex(NotePad.Notes.COLUMN_NAME_TODO);
@@ -182,6 +184,7 @@ public class NotesList extends ListActivity {
                     } else if (todo == NotePad.Notes.TODO_DONE) {
                         title = "☑ " + title;
                     }
+                    ((TextView) view).setTextSize(TypedValue.COMPLEX_UNIT_SP, fontSize);
                     ((TextView) view).setText(title);
                     return true;
                 } else if (view.getId() == android.R.id.text2) {
@@ -191,6 +194,7 @@ public class NotesList extends ListActivity {
                     if (category != null && category.length() > 0) {
                         text = category + "  " + text;
                     }
+                    ((TextView) view).setTextSize(TypedValue.COMPLEX_UNIT_SP, fontSize - 6);
                     ((TextView) view).setText(text);
                     return true;
                 }
@@ -277,6 +281,8 @@ public class NotesList extends ListActivity {
         super.onResume();
         // 从编辑界面返回时重新查询，保证标题和时间戳是最新的
         updateList(mSearchText.getText().toString().trim());
+        // 字体设置可能在设置界面中被修改
+        mAdapter.notifyDataSetChanged();
     }
 
     @Override
@@ -428,6 +434,9 @@ public class NotesList extends ListActivity {
              * In effect, this starts the NoteEditor Activity in NotePad.
              */
             startActivity(new Intent(Intent.ACTION_PASTE, getIntent().getData()));
+            return true;
+        } else if (item.getItemId() == R.id.menu_settings) {
+            startActivity(new Intent(this, SettingsActivity.class));
             return true;
         }
         return super.onOptionsItemSelected(item);
