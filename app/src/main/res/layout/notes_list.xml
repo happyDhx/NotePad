@@ -13,6 +13,48 @@
         android:singleLine="true"
         android:imeOptions="actionSearch" />
 
+    <RadioGroup
+        android:id="@+id/category_group"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingLeft="5dp"
+        android:paddingRight="5dp">
+
+        <RadioButton
+            android:id="@+id/category_all"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:textSize="13sp"
+            android:checked="true"
+            android:text="@string/category_all" />
+
+        <RadioButton
+            android:id="@+id/category_work"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:textSize="13sp"
+            android:text="@string/category_work" />
+
+        <RadioButton
+            android:id="@+id/category_study"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:textSize="13sp"
+            android:text="@string/category_study" />
+
+        <RadioButton
+            android:id="@+id/category_life"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:textSize="13sp"
+            android:text="@string/category_life" />
+    </RadioGroup>
+
     <ListView
         android:id="@android:id/list"
         android:layout_width="match_parent"

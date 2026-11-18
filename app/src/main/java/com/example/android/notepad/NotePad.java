@@ -150,5 +150,26 @@ public final class NotePad {
          * <P>Type: INTEGER (long from System.curentTimeMillis())</P>
          */
         public static final String COLUMN_NAME_MODIFICATION_DATE = "modified";
+
+        /**
+         * Column name for the category of the note
+         * <P>Type: TEXT (empty string means the note is not classified)</P>
+         */
+        public static final String COLUMN_NAME_CATEGORY = "category";
+
+        /**
+         * Column name for the to-do state of the note
+         * <P>Type: INTEGER, one of the TODO_ constants below</P>
+         */
+        public static final String COLUMN_NAME_TODO = "todo";
+
+        /** The note is an ordinary note */
+        public static final int TODO_NONE = 0;
+
+        /** The note is a to-do that has not been finished yet */
+        public static final int TODO_PENDING = 1;
+
+        /** The note is a to-do that has been finished */
+        public static final int TODO_DONE = 2;
     }
 }

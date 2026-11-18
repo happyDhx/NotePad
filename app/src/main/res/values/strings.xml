@@ -24,6 +24,26 @@
     <string name="title_notes_list">Notes</string>
     <string name="search_hint">搜索标题或内容</string>
 
+    <string name="category_all">全部</string>
+    <string name="category_work">工作</string>
+    <string name="category_study">学习</string>
+    <string name="category_life">生活</string>
+
+    <string name="menu_category">分类</string>
+    <string name="category_dialog_title">选择分类</string>
+    <string name="category_changed">分类已设置，保存后生效</string>
+
+    <string name="menu_mark_todo">设为待办</string>
+    <string name="menu_todo_done">标记完成</string>
+    <string name="menu_todo_undone">标记未完成</string>
+
+    <string-array name="categories">
+        <item>未分类</item>
+        <item>工作</item>
+        <item>学习</item>
+        <item>生活</item>
+    </string-array>
+
     <string name="menu_add">New note</string>
     <string name="menu_save">Save</string>
     <string name="menu_delete">Delete</string>

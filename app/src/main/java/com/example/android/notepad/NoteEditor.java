@@ -19,12 +19,14 @@ package com.example.android.notepad;
 import static com.example.android.notepad.R.*;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.res.Resources;
 import android.database.Cursor;
@@ -39,6 +41,7 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.widget.EditText;
+import android.widget.Toast;
 
 /**
  * This Activity handles "editing" a note, where editing is responding to
@@ -62,7 +65,8 @@ public class NoteEditor extends Activity {
         new String[] {
             NotePad.Notes._ID,
             NotePad.Notes.COLUMN_NAME_TITLE,
-            NotePad.Notes.COLUMN_NAME_NOTE
+            NotePad.Notes.COLUMN_NAME_NOTE,
+            NotePad.Notes.COLUMN_NAME_CATEGORY
     };
 
     // A label for the saved state of the activity
@@ -79,6 +83,9 @@ public class NoteEditor extends Activity {
     private Cursor mCursor;
     private EditText mText;
     private String mOriginalContent;
+
+    // The category chosen for this note, empty means it is not classified
+    private String mCategory = "";
 
     /**
      * Defines a custom EditText View that draws lines between each line of text that is displayed.
@@ -292,6 +299,11 @@ public class NoteEditor extends Activity {
             String note = mCursor.getString(colNoteIndex);
             mText.setTextKeepState(note);
 
+            // Gets the category of the note, an empty value means it is not classified.
+            int colCategoryIndex = mCursor.getColumnIndex(NotePad.Notes.COLUMN_NAME_CATEGORY);
+            String category = mCursor.getString(colCategoryIndex);
+            mCategory = (category == null) ? "" : category;
+
             // Stores the original note text, to allow the user to revert changes.
             if (mOriginalContent == null) {
                 mOriginalContent = note;
@@ -444,8 +456,40 @@ public class NoteEditor extends Activity {
             finish();
         } else if (id == R.id.menu_revert) {
             cancelNote();
+        } else if (id == R.id.menu_category) {
+            showCategoryDialog();
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    /**
+     * Shows a dialog with the available categories. The chosen category is written to the
+     * provider together with the note, so it is kept when the note is saved.
+     */
+    private void showCategoryDialog() {
+        final String[] categories = getResources().getStringArray(R.array.categories);
+
+        // Finds the item that is currently selected, the first one means "not classified".
+        int checked = 0;
+        for (int i = 1; i < categories.length; i++) {
+            if (categories[i].equals(mCategory)) {
+                checked = i;
+            }
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.category_dialog_title)
+                .setSingleChoiceItems(categories, checked, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        // The first item stores an empty category, the others store their name.
+                        mCategory = (which == 0) ? "" : categories[which];
+                        Toast.makeText(NoteEditor.this, R.string.category_changed,
+                                Toast.LENGTH_SHORT).show();
+                        dialog.dismiss();
+                    }
+                })
+                .show();
     }
 
 //BEGIN_INCLUDE(paste)
@@ -525,6 +569,9 @@ public class NoteEditor extends Activity {
         // Sets up a map to contain values to be updated in the provider.
         ContentValues values = new ContentValues();
         values.put(NotePad.Notes.COLUMN_NAME_MODIFICATION_DATE, System.currentTimeMillis());
+
+        // Keeps the category that the user chose for this note.
+        values.put(NotePad.Notes.COLUMN_NAME_CATEGORY, mCategory);
 
         // If the action is to insert a new note, this creates an initial title for it.
         if (mState == STATE_INSERT) {

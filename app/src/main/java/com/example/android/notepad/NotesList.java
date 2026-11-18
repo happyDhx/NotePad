@@ -23,6 +23,7 @@ import android.content.ClipboardManager;
 import android.content.ClipData;
 import android.content.ComponentName;
 import android.content.ContentUris;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
@@ -40,11 +41,14 @@ import android.view.ContextMenu.ContextMenuInfo;
 import android.widget.AdapterView;
 import android.widget.EditText;
 import android.widget.ListView;
+import android.widget.RadioGroup;
 import android.widget.SimpleCursorAdapter;
 import android.widget.TextView;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 
 /**
@@ -69,6 +73,8 @@ public class NotesList extends ListActivity {
             NotePad.Notes._ID, // 0
             NotePad.Notes.COLUMN_NAME_TITLE, // 1
             NotePad.Notes.COLUMN_NAME_MODIFICATION_DATE, // 2
+            NotePad.Notes.COLUMN_NAME_CATEGORY, // 3
+            NotePad.Notes.COLUMN_NAME_TODO, // 4
     };
 
     /** The index of the title column */
@@ -84,6 +90,9 @@ public class NotesList extends ListActivity {
 
     /** The search box above the list */
     private EditText mSearchText;
+
+    /** The category the list is filtered by, empty means all categories */
+    private String mCategory = "";
 
     /**
      * onCreate is called when Android starts this Activity from scratch.
@@ -157,12 +166,32 @@ public class NotesList extends ListActivity {
               );
 
         // The modification date is stored as a long, so convert it to a readable string.
+        // The title of a to-do note gets a check box in front of it.
         mAdapter.setViewBinder(new SimpleCursorAdapter.ViewBinder() {
             @Override
             public boolean setViewValue(View view, Cursor cursor, int columnIndex) {
-                if (view.getId() == android.R.id.text2) {
+                int titleIndex = cursor.getColumnIndex(NotePad.Notes.COLUMN_NAME_TITLE);
+                int categoryIndex = cursor.getColumnIndex(NotePad.Notes.COLUMN_NAME_CATEGORY);
+                int todoIndex = cursor.getColumnIndex(NotePad.Notes.COLUMN_NAME_TODO);
+
+                if (view.getId() == android.R.id.text1) {
+                    String title = cursor.getString(titleIndex);
+                    int todo = cursor.getInt(todoIndex);
+                    if (todo == NotePad.Notes.TODO_PENDING) {
+                        title = "☐ " + title;
+                    } else if (todo == NotePad.Notes.TODO_DONE) {
+                        title = "☑ " + title;
+                    }
+                    ((TextView) view).setText(title);
+                    return true;
+                } else if (view.getId() == android.R.id.text2) {
                     long time = cursor.getLong(COLUMN_INDEX_MODIFIED);
-                    ((TextView) view).setText(TIME_FORMAT.format(new Date(time)));
+                    String text = TIME_FORMAT.format(new Date(time));
+                    String category = cursor.getString(categoryIndex);
+                    if (category != null && category.length() > 0) {
+                        text = category + "  " + text;
+                    }
+                    ((TextView) view).setText(text);
                     return true;
                 }
                 return false;
@@ -188,19 +217,50 @@ public class NotesList extends ListActivity {
                 updateList(s.toString().trim());
             }
         });
+
+        // The radio buttons below the search box filter the list by category.
+        RadioGroup group = (RadioGroup) findViewById(R.id.category_group);
+        group.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(RadioGroup group, int checkedId) {
+                if (checkedId == R.id.category_work) {
+                    mCategory = getString(R.string.category_work);
+                } else if (checkedId == R.id.category_study) {
+                    mCategory = getString(R.string.category_study);
+                } else if (checkedId == R.id.category_life) {
+                    mCategory = getString(R.string.category_life);
+                } else {
+                    mCategory = "";
+                }
+                updateList(mSearchText.getText().toString().trim());
+            }
+        });
     }
 
     /**
-     * Re-queries the notes and replaces the list's cursor. An empty keyword shows all notes.
+     * Re-queries the notes and replaces the list's cursor. An empty keyword and an empty
+     * category mean that no filtering is done.
      */
     private void updateList(String keyword) {
-        String selection = null;
-        String[] selectionArgs = null;
+        StringBuilder where = new StringBuilder();
+        List<String> args = new ArrayList<String>();
+
         if (keyword.length() > 0) {
-            selection = NotePad.Notes.COLUMN_NAME_TITLE + " LIKE ? OR "
-                    + NotePad.Notes.COLUMN_NAME_NOTE + " LIKE ?";
-            selectionArgs = new String[] { "%" + keyword + "%", "%" + keyword + "%" };
+            where.append("(" + NotePad.Notes.COLUMN_NAME_TITLE + " LIKE ? OR "
+                    + NotePad.Notes.COLUMN_NAME_NOTE + " LIKE ?)");
+            args.add("%" + keyword + "%");
+            args.add("%" + keyword + "%");
         }
+        if (mCategory.length() > 0) {
+            if (where.length() > 0) {
+                where.append(" AND ");
+            }
+            where.append(NotePad.Notes.COLUMN_NAME_CATEGORY + " = ?");
+            args.add(mCategory);
+        }
+
+        String selection = where.length() > 0 ? where.toString() : null;
+        String[] selectionArgs = args.isEmpty() ? null : args.toArray(new String[args.size()]);
 
         Cursor cursor = getContentResolver().query(
                 getIntent().getData(),
@@ -424,6 +484,17 @@ public class NotesList extends ListActivity {
         // Sets the menu header to be the title of the selected note.
         menu.setHeaderTitle(cursor.getString(COLUMN_INDEX_TITLE));
 
+        // The to-do entry is named according to the current state of the note.
+        int todo = cursor.getInt(cursor.getColumnIndex(NotePad.Notes.COLUMN_NAME_TODO));
+        MenuItem todoItem = menu.findItem(R.id.context_todo);
+        if (todo == NotePad.Notes.TODO_PENDING) {
+            todoItem.setTitle(R.string.menu_todo_done);
+        } else if (todo == NotePad.Notes.TODO_DONE) {
+            todoItem.setTitle(R.string.menu_todo_undone);
+        } else {
+            todoItem.setTitle(R.string.menu_mark_todo);
+        }
+
         // Append to the
         // menu items for any other activities that can do stuff with it
         // as well.  This does a query on the system for any activities that
@@ -500,6 +571,21 @@ public class NotesList extends ListActivity {
             // Returns to the caller and skips further processing.
             return true;
             //END_INCLUDE(copy)
+        } else if (id == R.id.context_todo) {
+            // Switches the note between an ordinary note, a pending to-do and a finished one.
+            Cursor cursor = (Cursor) getListAdapter().getItem(info.position);
+            int todo = cursor.getInt(cursor.getColumnIndex(NotePad.Notes.COLUMN_NAME_TODO));
+            int next = (todo == NotePad.Notes.TODO_PENDING)
+                    ? NotePad.Notes.TODO_DONE : NotePad.Notes.TODO_PENDING;
+
+            ContentValues values = new ContentValues();
+            values.put(NotePad.Notes.COLUMN_NAME_TODO, next);
+            getContentResolver().update(noteUri, values, null, null);
+
+            // The cursor is not managed by the Activity, so refresh the list manually.
+            updateList(mSearchText.getText().toString().trim());
+
+            return true;
         } else if (id == R.id.context_delete) {
             // Deletes the note from the provider by passing in a URI in note ID format.
             // Please see the introductory note about performing provider operations on the

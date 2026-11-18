@@ -63,7 +63,7 @@ public class NotePadProvider extends ContentProvider implements PipeDataWriter<C
     /**
      * The database version
      */
-    private static final int DATABASE_VERSION = 2;
+    private static final int DATABASE_VERSION = 3;
 
     /**
      * A projection map used to select columns from the database
@@ -156,6 +156,14 @@ public class NotePadProvider extends ContentProvider implements PipeDataWriter<C
                 NotePad.Notes.COLUMN_NAME_MODIFICATION_DATE,
                 NotePad.Notes.COLUMN_NAME_MODIFICATION_DATE);
 
+        // Maps "category" to "category"
+        sNotesProjectionMap.put(
+                NotePad.Notes.COLUMN_NAME_CATEGORY,
+                NotePad.Notes.COLUMN_NAME_CATEGORY);
+
+        // Maps "todo" to "todo"
+        sNotesProjectionMap.put(NotePad.Notes.COLUMN_NAME_TODO, NotePad.Notes.COLUMN_NAME_TODO);
+
         /*
          * Creates an initializes a projection map for handling Live Folders
          */
@@ -196,29 +204,30 @@ public class NotePadProvider extends ContentProvider implements PipeDataWriter<C
                    + NotePad.Notes.COLUMN_NAME_TITLE + " TEXT,"
                    + NotePad.Notes.COLUMN_NAME_NOTE + " TEXT,"
                    + NotePad.Notes.COLUMN_NAME_CREATE_DATE + " INTEGER,"
-                   + NotePad.Notes.COLUMN_NAME_MODIFICATION_DATE + " INTEGER"
+                   + NotePad.Notes.COLUMN_NAME_MODIFICATION_DATE + " INTEGER,"
+                   + NotePad.Notes.COLUMN_NAME_CATEGORY + " TEXT,"
+                   + NotePad.Notes.COLUMN_NAME_TODO + " INTEGER NOT NULL DEFAULT 0"
                    + ");");
        }
 
        /**
         *
-        * Demonstrates that the provider must consider what happens when the
-        * underlying datastore is changed. In this sample, the database is upgraded the database
-        * by destroying the existing data.
-        * A real application should upgrade the database in place.
+        * Upgrades the database by adding the columns introduced in version 3. The existing
+        * notes are kept, so that the user does not lose anything when the app is updated.
         */
        @Override
        public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
 
            // Logs that the database is being upgraded
            Log.w(TAG, "Upgrading database from version " + oldVersion + " to "
-                   + newVersion + ", which will destroy all old data");
+                   + newVersion + ", which will add the category and todo columns");
 
-           // Kills the table and existing data
-           db.execSQL("DROP TABLE IF EXISTS notes");
-
-           // Recreates the database with a new version
-           onCreate(db);
+           if (oldVersion < 3) {
+               db.execSQL("ALTER TABLE " + NotePad.Notes.TABLE_NAME + " ADD COLUMN "
+                       + NotePad.Notes.COLUMN_NAME_CATEGORY + " TEXT;");
+               db.execSQL("ALTER TABLE " + NotePad.Notes.TABLE_NAME + " ADD COLUMN "
+                       + NotePad.Notes.COLUMN_NAME_TODO + " INTEGER NOT NULL DEFAULT 0;");
+           }
        }
    }
 
