@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical">
@@ -9,6 +10,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:hint="@string/search_hint"
+        android:textColor="#333333"
+        android:textColorHint="#999999"
         android:inputType="text"
         android:singleLine="true"
         android:imeOptions="actionSearch" />
@@ -27,6 +30,7 @@
             android:layout_weight="1"
             android:layout_height="wrap_content"
             android:textSize="13sp"
+            android:textColor="#444444"
             android:checked="true"
             android:text="@string/category_all" />
 
@@ -36,6 +40,7 @@
             android:layout_weight="1"
             android:layout_height="wrap_content"
             android:textSize="13sp"
+            android:textColor="#444444"
             android:text="@string/category_work" />
 
         <RadioButton
@@ -44,6 +49,7 @@
             android:layout_weight="1"
             android:layout_height="wrap_content"
             android:textSize="13sp"
+            android:textColor="#444444"
             android:text="@string/category_study" />
 
         <RadioButton
@@ -52,6 +58,7 @@
             android:layout_weight="1"
             android:layout_height="wrap_content"
             android:textSize="13sp"
+            android:textColor="#444444"
             android:text="@string/category_life" />
     </RadioGroup>
 

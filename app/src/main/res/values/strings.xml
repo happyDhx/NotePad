@@ -41,6 +41,28 @@
     <string name="pref_font_size">字体大小</string>
     <string name="pref_font_size_summary">设置笔记列表和正文的字体大小</string>
 
+    <string name="pref_theme">记事本背景</string>
+    <string name="pref_theme_summary">更换列表和编辑器的背景颜色</string>
+
+    <string-array name="theme_names">
+        <item>白色</item>
+        <item>米黄</item>
+        <item>淡蓝</item>
+    </string-array>
+    <string-array name="theme_values">
+        <item>#FFFFFF</item>
+        <item>#FFF3D6</item>
+        <item>#E3F0FF</item>
+    </string-array>
+
+    <string name="menu_export">导出笔记</string>
+    <string name="menu_backup">云备份</string>
+    <string name="menu_restore">从云端恢复</string>
+    <string name="export_done">导出成功</string>
+    <string name="backup_done">备份成功</string>
+    <string name="restore_done">已恢复 %1$d 条笔记</string>
+    <string name="file_failed">文件操作失败</string>
+
     <string name="menu_add_attachment">添加附件</string>
     <string name="attachment_dialog_title">选择附件类型</string>
     <string name="attachment_image">图片附件，点击查看</string>

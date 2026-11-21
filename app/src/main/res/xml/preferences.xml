@@ -7,4 +7,11 @@
         android:entries="@array/font_size_names"
         android:entryValues="@array/font_size_values"
         android:defaultValue="20" />
+    <ListPreference
+        android:key="theme"
+        android:title="@string/pref_theme"
+        android:summary="@string/pref_theme_summary"
+        android:entries="@array/theme_names"
+        android:entryValues="@array/theme_values"
+        android:defaultValue="#FFFFFF" />
 </PreferenceScreen>

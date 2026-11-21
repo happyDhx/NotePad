@@ -45,7 +45,14 @@ import android.widget.ListView;
 import android.widget.RadioGroup;
 import android.widget.SimpleCursorAdapter;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -94,6 +101,19 @@ public class NotesList extends ListActivity {
 
     /** The category the list is filtered by, empty means all categories */
     private String mCategory = "";
+
+    // 导出、备份、恢复时用来区分是哪个操作返回的
+    private static final int REQUEST_EXPORT = 1;
+    private static final int REQUEST_BACKUP = 2;
+    private static final int REQUEST_RESTORE = 3;
+
+    // 备份文件里每条笔记占一行，字段之间用 Tab 分隔
+    private static final String[] BACKUP_PROJECTION = new String[] {
+            NotePad.Notes.COLUMN_NAME_TITLE,
+            NotePad.Notes.COLUMN_NAME_NOTE,
+            NotePad.Notes.COLUMN_NAME_CATEGORY,
+            NotePad.Notes.COLUMN_NAME_TODO,
+    };
 
     /**
      * onCreate is called when Android starts this Activity from scratch.
@@ -283,6 +303,8 @@ public class NotesList extends ListActivity {
         updateList(mSearchText.getText().toString().trim());
         // 字体设置可能在设置界面中被修改
         mAdapter.notifyDataSetChanged();
+        // 主题背景也可能被修改
+        findViewById(R.id.root).setBackgroundColor(SettingsActivity.getBackgroundColor(this));
     }
 
     @Override
@@ -438,8 +460,134 @@ public class NotesList extends ListActivity {
         } else if (item.getItemId() == R.id.menu_settings) {
             startActivity(new Intent(this, SettingsActivity.class));
             return true;
+        } else if (item.getItemId() == R.id.menu_export) {
+            startActivityForResult(createDocument("notes.txt"), REQUEST_EXPORT);
+            return true;
+        } else if (item.getItemId() == R.id.menu_backup) {
+            startActivityForResult(createDocument("notes_backup.txt"), REQUEST_BACKUP);
+            return true;
+        } else if (item.getItemId() == R.id.menu_restore) {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("text/plain");
+            startActivityForResult(intent, REQUEST_RESTORE);
+            return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    /** 打开系统文件选择器，用户可以选择本地目录，也可以选择网盘。 */
+    private Intent createDocument(String fileName) {
+        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("text/plain");
+        intent.putExtra(Intent.EXTRA_TITLE, fileName);
+        return intent;
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (resultCode != RESULT_OK || data == null || data.getData() == null) {
+            return;
+        }
+
+        try {
+            if (requestCode == REQUEST_EXPORT) {
+                writeExport(data.getData());
+                Toast.makeText(this, R.string.export_done, Toast.LENGTH_SHORT).show();
+            } else if (requestCode == REQUEST_BACKUP) {
+                writeBackup(data.getData());
+                Toast.makeText(this, R.string.backup_done, Toast.LENGTH_SHORT).show();
+            } else if (requestCode == REQUEST_RESTORE) {
+                int count = readBackup(data.getData());
+                updateList(mSearchText.getText().toString().trim());
+                Toast.makeText(this, getString(R.string.restore_done, count),
+                        Toast.LENGTH_SHORT).show();
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "File operation failed", e);
+            Toast.makeText(this, R.string.file_failed, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    /** 把所有笔记写成一个可以直接阅读的文本文件。 */
+    private void writeExport(Uri uri) throws Exception {
+        Cursor cursor = getContentResolver().query(getIntent().getData(),
+                new String[] { NotePad.Notes.COLUMN_NAME_TITLE, NotePad.Notes.COLUMN_NAME_NOTE },
+                null, null, NotePad.Notes.DEFAULT_SORT_ORDER);
+        OutputStream out = getContentResolver().openOutputStream(uri);
+        BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(out, "UTF-8"));
+        try {
+            while (cursor != null && cursor.moveToNext()) {
+                writer.write("标题：" + cursor.getString(0));
+                writer.newLine();
+                writer.write(cursor.getString(1));
+                writer.newLine();
+                writer.write("----------");
+                writer.newLine();
+            }
+        } finally {
+            writer.close();
+            if (cursor != null) {
+                cursor.close();
+            }
+        }
+    }
+
+    /** 把笔记写成备份文件，正文里的换行用 \n 代替，方便一条笔记占一行。 */
+    private void writeBackup(Uri uri) throws Exception {
+        Cursor cursor = getContentResolver().query(getIntent().getData(), BACKUP_PROJECTION,
+                null, null, NotePad.Notes.DEFAULT_SORT_ORDER);
+        OutputStream out = getContentResolver().openOutputStream(uri);
+        BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(out, "UTF-8"));
+        try {
+            while (cursor != null && cursor.moveToNext()) {
+                String title = cursor.getString(0).replace("\n", " ");
+                String note = cursor.getString(1).replace("\n", "\\n");
+                String category = cursor.getString(2);
+                if (category == null) {
+                    category = "";
+                }
+                writer.write(title + "\t" + category + "\t" + cursor.getInt(3) + "\t" + note);
+                writer.newLine();
+            }
+        } finally {
+            writer.close();
+            if (cursor != null) {
+                cursor.close();
+            }
+        }
+    }
+
+    /** 读取备份文件，把里面的笔记重新添加到数据库。 */
+    private int readBackup(Uri uri) throws Exception {
+        InputStream in = getContentResolver().openInputStream(uri);
+        BufferedReader reader = new BufferedReader(new InputStreamReader(in, "UTF-8"));
+        int count = 0;
+        try {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String[] parts = line.split("\t", 4);
+                if (parts.length < 4) {
+                    continue;
+                }
+
+                ContentValues values = new ContentValues();
+                values.put(NotePad.Notes.COLUMN_NAME_TITLE, parts[0]);
+                values.put(NotePad.Notes.COLUMN_NAME_CATEGORY, parts[1]);
+                values.put(NotePad.Notes.COLUMN_NAME_TODO, Integer.parseInt(parts[2]));
+                values.put(NotePad.Notes.COLUMN_NAME_NOTE, parts[3].replace("\\n", "\n"));
+                values.put(NotePad.Notes.COLUMN_NAME_CREATE_DATE, System.currentTimeMillis());
+                values.put(NotePad.Notes.COLUMN_NAME_MODIFICATION_DATE, System.currentTimeMillis());
+
+                getContentResolver().insert(NotePad.Notes.CONTENT_URI, values);
+                count++;
+            }
+        } finally {
+            reader.close();
+        }
+        return count;
     }
 
     /**

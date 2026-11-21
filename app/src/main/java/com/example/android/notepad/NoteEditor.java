@@ -289,6 +289,7 @@ public class NoteEditor extends Activity {
         super.onResume();
 
         mText.setTextSize(TypedValue.COMPLEX_UNIT_SP, SettingsActivity.getFontSize(this));
+        findViewById(R.id.root).setBackgroundColor(SettingsActivity.getBackgroundColor(this));
 
         /*
          * mCursor is initialized, since onCreate() always precedes onResume for any running
